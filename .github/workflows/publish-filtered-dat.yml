@@ -1,0 +1,72 @@
+name: Publish Filtered DAT
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-filtered-dat
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build filtered DAT files
+        env:
+          GEOSITE_URL: https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+          GEOIP_URL: https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+        run: |
+          mkdir -p dist
+          go run ./cmd/filterdat \
+            --category-file category-for-save.txt \
+            --geosite-input "${GEOSITE_URL}" \
+            --geosite-output dist/geosite.dat \
+            --geoip-input "${GEOIP_URL}" \
+            --geoip-output dist/geoip.dat
+
+      - name: Prepare release notes
+        id: notes
+        env:
+          GEOSITE_URL: https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+          GEOIP_URL: https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+        run: |
+          published_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "published_at=${published_at}" >> "${GITHUB_OUTPUT}"
+          {
+            echo 'body<<EOF'
+            echo 'Filtered DAT files built from Loyalsoldier/v2ray-rules-dat latest release.'
+            echo
+            echo "- Upstream geosite: ${GEOSITE_URL}"
+            echo "- Upstream geoip: ${GEOIP_URL}"
+            echo "- Source commit: ${GITHUB_SHA}"
+            echo "- Published at (UTC): ${published_at}"
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: filtered-dat-latest
+          name: Filtered DAT Latest
+          body: ${{ steps.notes.outputs.body }}
+          files: |
+            dist/geosite.dat
+            dist/geoip.dat
+          overwrite_files: true
+          fail_on_unmatched_files: true
