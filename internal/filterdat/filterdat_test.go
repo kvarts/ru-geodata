@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -99,7 +100,7 @@ func TestRunWithRepositoryFixtures(t *testing.T) {
 	dir := t.TempDir()
 	geositeOut := filepath.Join(dir, "geosite.filtered.dat")
 	geoipOut := filepath.Join(dir, "geoip.filtered.dat")
-	testdataDir := filepath.Join("testdata")
+	testdataDir := fixtureDir(t)
 
 	cfg := Config{
 		CategoryFile:  filepath.Join(testdataDir, "category-for-save.txt"),
@@ -151,6 +152,17 @@ func TestRunWithRepositoryFixtures(t *testing.T) {
 	if !strings.Contains(stdout.String(), "geoip: kept 1") {
 		t.Fatalf("missing geoip summary: %s", stdout.String())
 	}
+}
+
+func fixtureDir(t *testing.T) string {
+	t.Helper()
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve test file path")
+	}
+
+	return filepath.Join(filepath.Dir(file), "testdata")
 }
 
 func encodeRootEntries(entries ...[]byte) []byte {
