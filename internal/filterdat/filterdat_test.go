@@ -99,12 +99,13 @@ func TestRunWithRepositoryFixtures(t *testing.T) {
 	dir := t.TempDir()
 	geositeOut := filepath.Join(dir, "geosite.filtered.dat")
 	geoipOut := filepath.Join(dir, "geoip.filtered.dat")
+	testdataDir := filepath.Join("testdata")
 
 	cfg := Config{
-		CategoryFile:  filepath.Join("..", "..", "category-for-save.txt"),
-		GeoSiteInput:  filepath.Join("..", "..", "geosite.dat"),
+		CategoryFile:  filepath.Join(testdataDir, "category-for-save.txt"),
+		GeoSiteInput:  filepath.Join(testdataDir, "geosite.dat"),
 		GeoSiteOutput: geositeOut,
-		GeoIPInput:    filepath.Join("..", "..", "geoip.dat"),
+		GeoIPInput:    filepath.Join(testdataDir, "geoip.dat"),
 		GeoIPOutput:   geoipOut,
 	}
 
@@ -132,8 +133,11 @@ func TestRunWithRepositoryFixtures(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(geositeKeys) != 9 {
-		t.Fatalf("expected 9 geosite entries, got %d", len(geositeKeys))
+	if len(geositeKeys) != 2 {
+		t.Fatalf("expected 2 geosite entries, got %d", len(geositeKeys))
+	}
+	if got, want := strings.Join(geositeKeys, ","), "KEEP,EXTRA"; got != want {
+		t.Fatalf("unexpected geosite keys: got %q want %q", got, want)
 	}
 	if len(geoipKeys) != 1 || geoipKeys[0] != "RU" {
 		t.Fatalf("unexpected geoip keys: %v", geoipKeys)
@@ -141,7 +145,7 @@ func TestRunWithRepositoryFixtures(t *testing.T) {
 	if strings.Contains(stderr.String(), "warning:") {
 		t.Fatalf("unexpected warnings: %s", stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "geosite: kept 9") {
+	if !strings.Contains(stdout.String(), "geosite: kept 2") {
 		t.Fatalf("missing geosite summary: %s", stdout.String())
 	}
 	if !strings.Contains(stdout.String(), "geoip: kept 1") {
