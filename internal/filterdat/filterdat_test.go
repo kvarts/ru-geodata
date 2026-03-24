@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -98,15 +97,40 @@ func TestLoadSourceHTTP(t *testing.T) {
 
 func TestRunWithRepositoryFixtures(t *testing.T) {
 	dir := t.TempDir()
+	fixturesDir := filepath.Join(dir, "fixtures")
 	geositeOut := filepath.Join(dir, "geosite.filtered.dat")
 	geoipOut := filepath.Join(dir, "geoip.filtered.dat")
-	testdataDir := fixtureDir(t)
+
+	if err := os.MkdirAll(fixturesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	categoryFile := filepath.Join(fixturesDir, "category-for-save.txt")
+	geositeInput := filepath.Join(fixturesDir, "geosite.dat")
+	geoipInput := filepath.Join(fixturesDir, "geoip.dat")
+
+	if err := os.WriteFile(categoryFile, []byte("geosite:KEEP\ngeosite:EXTRA\ngeoip:RU\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(geositeInput, encodeRootEntries(
+		encodeGeoSiteEntry("KEEP"),
+		encodeGeoSiteEntry("EXTRA"),
+		encodeGeoSiteEntry("DROP"),
+	), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(geoipInput, encodeRootEntries(
+		encodeGeoIPEntry("RU"),
+		encodeGeoIPEntry("US"),
+	), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := Config{
-		CategoryFile:  filepath.Join(testdataDir, "category-for-save.txt"),
-		GeoSiteInput:  filepath.Join(testdataDir, "geosite.dat"),
+		CategoryFile:  categoryFile,
+		GeoSiteInput:  geositeInput,
 		GeoSiteOutput: geositeOut,
-		GeoIPInput:    filepath.Join(testdataDir, "geoip.dat"),
+		GeoIPInput:    geoipInput,
 		GeoIPOutput:   geoipOut,
 	}
 
@@ -154,17 +178,6 @@ func TestRunWithRepositoryFixtures(t *testing.T) {
 	}
 }
 
-func fixtureDir(t *testing.T) string {
-	t.Helper()
-
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("resolve test file path")
-	}
-
-	return filepath.Join(filepath.Dir(file), "testdata")
-}
-
 func encodeRootEntries(entries ...[]byte) []byte {
 	var out []byte
 	for _, entry := range entries {
@@ -175,6 +188,13 @@ func encodeRootEntries(entries ...[]byte) []byte {
 }
 
 func encodeGeoSiteEntry(code string) []byte {
+	var entry []byte
+	entry = protowire.AppendTag(entry, 1, protowire.BytesType)
+	entry = protowire.AppendString(entry, code)
+	return entry
+}
+
+func encodeGeoIPEntry(code string) []byte {
 	var entry []byte
 	entry = protowire.AppendTag(entry, 1, protowire.BytesType)
 	entry = protowire.AppendString(entry, code)
